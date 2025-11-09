@@ -1,6 +1,10 @@
 library(igraph)
+library(shiny)
+library(bslib)
+library("lubridate") 
 
-
+# Aplikacja uruchomiana za pomocą shiny
+server <- function(input, output) {
 # Przygotowanie grafu ważonego z danych
 data <- read.table("~/Studia/VII/Danologia/data-science-computational-social-science-2025-simplyNoOne/css/out.radoslaw_email_email", skip = 2, header = FALSE)
 
@@ -66,7 +70,7 @@ independent_cascades <- function(graph, initial_nodes) {
       keys <- paste(node, inactive_nbrs, sep = "-")
       probs <- weight_lookup[keys]
 
-      successes <- runif(length(probs)) < probs
+      successes <- runif(length(probs)) < (probs * (input$probability_multiplier / 100))
       activated[inactive_nbrs[successes]] <- TRUE
       next_wave <- c(next_wave, inactive_nbrs[successes])
     }
@@ -118,6 +122,7 @@ avg_history
 
 }
 
+ output$ICPlot <- renderPlot({
 
 # Przeprowadzenie symulacji dla każdej strategii i rysowanie wyników
 outdegree_results <- avg_results_for_strategy(top_outdegree)
@@ -146,3 +151,36 @@ legend("bottomright",
        legend = c("I. Outdegree", "II. Betweenness", "III. Closeness", "IV. Losowe"),
        col = c("blue", "red", "green", "orange"),
        lwd = 2, bty = "n")
+
+ })
+
+}
+
+# Konfiguracja Shiny do wizualizacji wyników
+
+
+ui <- page_sidebar(
+
+  title = "Rozprzestrzenianie informacji poprzez Email - Independent Cascades Model",
+
+  sidebar = sidebar(
+
+    sliderInput(
+      inputId = "probability_multiplier",
+      label = "Mnożnik prawdopodobieństwa aktywacji krawędzi:",
+      min = 20,
+      max = 200,
+      value = 100
+    ),
+    sliderInput(
+      inputId = "iterations",
+      label = "Liczba wykonań jednej symulacji symulacji:",
+      min = 1,
+      max = 50,
+      value = 10
+    )
+  ),
+  plotOutput(outputId = "ICPlot")
+)
+
+shinyApp(ui = ui, server = server)
