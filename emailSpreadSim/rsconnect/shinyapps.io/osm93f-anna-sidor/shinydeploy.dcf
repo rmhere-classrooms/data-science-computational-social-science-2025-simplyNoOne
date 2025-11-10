@@ -5,6 +5,6 @@ account: osm93f-anna-sidor
 server: shinyapps.io
 hostUrl: https://api.shinyapps.io/v1
 appId: 16015913
-bundleId: 11156728
+bundleId: 11156810
 url: https://osm93f-anna-sidor.shinyapps.io/shinydeploy/
 version: 1

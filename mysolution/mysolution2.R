@@ -22,7 +22,7 @@ cat("\nŚrednica grafu:", graph_diameter, "\n")
 
 
 # Różnice między grafami Barabasi-Albert i Erdos-Renyi:
-# 
+#
 # Graf Erdos-Renyi (model losowy):
 # - Każda para węzłów ma takie samo prawdopodobieństwo połączenia
 # - Rozkład stopni węzłów jest bliski rozkładowi Poissona

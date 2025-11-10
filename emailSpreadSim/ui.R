@@ -1,11 +1,8 @@
 library(shiny)
 
 fluidPage(
-
-  titlePanel( "Rozprzestrzenianie informacji poprzez Email - Independent Cascades Model"),
-
+  titlePanel("Rozprzestrzenianie informacji poprzez Email - Independent Cascades Model"),
   sidebarPanel(
-
     sliderInput(
       inputId = "probability_multiplier",
       label = "Mnożnik prawdopodobieństwa aktywacji krawędzi:",
@@ -22,7 +19,6 @@ fluidPage(
     )
   ),
   mainPanel(
-
     plotOutput(outputId = "ICPlot")
   )
 )
