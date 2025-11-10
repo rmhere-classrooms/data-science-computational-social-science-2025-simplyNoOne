@@ -4,6 +4,15 @@ library(bslib)
 library("lubridate")
 
 function(input, output) {
+  sim_params <- reactive({
+    list(
+      prob_mult = input$probability_multiplier,
+      iterations = input$iterations
+    )
+  })
+  sim_params_debounced <- debounce(sim_params, millis = 2000)
+ 
+
   prep_weighted_graph <- function() {
     data <- read.table("data/out.data", skip = 2, header = FALSE)
 
@@ -33,7 +42,7 @@ function(input, output) {
   }
 
   # Funkcja symulująca proces independent cascades
-  independent_cascades <- function(graph, initial_nodes) {
+  independent_cascades <- function(graph, initial_nodes, prob_mult) {
     n_nodes <- vcount(graph)
     activated <- logical(n_nodes)
     activated[initial_nodes] <- TRUE
@@ -63,7 +72,7 @@ function(input, output) {
         keys <- paste(node, inactive_nbrs, sep = "-")
         probs <- weight_lookup[keys]
 
-        successes <- runif(length(probs)) < (probs * (input$probability_multiplier / 100))
+        successes <- runif(length(probs)) < (probs * (prob_mult / 100))
         activated[inactive_nbrs[successes]] <- TRUE
         next_wave <- c(next_wave, inactive_nbrs[successes])
       }
@@ -78,11 +87,11 @@ function(input, output) {
 
 
   # Funkcja do obliczania średnich wyników dla danej strategii na podstawie n wykonań
-  avg_results_for_strategy <- function(initial_nodes, graph) {
-    n_experiments <- 100
+  avg_results_for_strategy <- function(initial_nodes, graph, params) {
+    n_experiments <- params$iterations
     all_histories <- list()
     for (exp in 1:n_experiments) {
-      history <- independent_cascades(graph, initial_nodes)
+      history <- independent_cascades(graph, initial_nodes, params$prob_mult)
       all_histories[[exp]] <- history
     }
 
@@ -102,6 +111,7 @@ function(input, output) {
   }
 
   output$ICPlot <- renderPlot({
+    params <- sim_params_debounced()
     withProgress(message = "Running the simulation", value = 0, {
       graph_weighted <- prep_weighted_graph()
 
@@ -112,26 +122,31 @@ function(input, output) {
       outdegrees <- degree(graph_weighted, mode = "out")
       betweenness_values <- betweenness(graph_weighted, directed = TRUE)
       closeness_values <- closeness(graph_weighted, mode = "out")
+      alpha_centrality_values <- alpha_centrality(graph_weighted)
 
       top_outdegree <- order(outdegrees, decreasing = TRUE)[1:n_initial]
       top_betweenness <- order(betweenness_values, decreasing = TRUE)[1:n_initial]
       top_closeness <- order(closeness_values, decreasing = TRUE)[1:n_initial]
       top_random <- sample(1:vcount(graph_weighted), n_initial)
+      top_alpha_centrality <- order(alpha_centrality_values, decreasing = TRUE)[1:n_initial]
 
       # Przeprowadzenie symulacji dla każdej strategii i rysowanie wyników
       incProgress(0.1, detail = "Outdegree strategy")
-      outdegree_results <- avg_results_for_strategy(top_outdegree, graph_weighted)
+      outdegree_results <- avg_results_for_strategy(top_outdegree, graph_weighted, params)
 
-      incProgress(0.2, detail = "Betweenness strategy")
-      betweenness_results <- avg_results_for_strategy(top_betweenness, graph_weighted)
+      incProgress(0.15, detail = "Betweenness strategy")
+      betweenness_results <- avg_results_for_strategy(top_betweenness, graph_weighted, params)
 
-      incProgress(0.2, detail = "Closeness strategy")
-      closeness_results <- avg_results_for_strategy(top_closeness, graph_weighted)
+      incProgress(0.15, detail = "Closeness strategy")
+      closeness_results <- avg_results_for_strategy(top_closeness, graph_weighted, params)
       
-      incProgress(0.2, detail = "Random strategy")
-      random_results <- avg_results_for_strategy(top_random, graph_weighted)
+      incProgress(0.15, detail = "Random strategy")
+      random_results <- avg_results_for_strategy(top_random, graph_weighted, params)
 
-      incProgress(0.2, detail = "Drawing results")
+      incProgress(0.15, detail = "Alpha Centrality strategy")
+      alpha_centrality_results <- avg_results_for_strategy(top_alpha_centrality, graph_weighted, params)
+
+      incProgress(0.15, detail = "Drawing results")
 
       max_len <- max(
         length(outdegree_results), length(betweenness_results),
@@ -140,10 +155,12 @@ function(input, output) {
 
       max_val <- vcount(graph_weighted)
 
+      incProgress(0.05, detail = "Finalizing plot")
+
       plot(NULL,
         xlim = c(0, max_len), ylim = c(0, max_val),
-        xlab = "Iteracja", ylab = "Liczba aktywowanych węzłów",
-        main = "Rozprzestrzenianie informacji - Independent Cascades Model",
+        xlab = "Iteration", ylab = "Number of activated nodes",
+        main = "Information Spread - Independent Cascades Model",
         las = 1
       )
       grid()
@@ -152,10 +169,11 @@ function(input, output) {
       lines(0:(length(betweenness_results) - 1), betweenness_results, col = "red", lwd = 2)
       lines(0:(length(closeness_results) - 1), closeness_results, col = "green", lwd = 2)
       lines(0:(length(random_results) - 1), random_results, col = "orange", lwd = 2)
+      lines(0:(length(alpha_centrality_results) - 1), alpha_centrality_results, col = "purple", lwd = 2)
 
-      legend("bottomright",
-        legend = c("I. Outdegree", "II. Betweenness", "III. Closeness", "IV. Losowe"),
-        col = c("blue", "red", "green", "orange"),
+      legend("topright",
+        legend = c("I. Outdegree", "II. Betweenness", "III. Closeness", "IV. Random", "V. Alpha Centrality"),
+        col = c("blue", "red", "green", "orange", "purple"),
         lwd = 2, bty = "n"
       )
     })

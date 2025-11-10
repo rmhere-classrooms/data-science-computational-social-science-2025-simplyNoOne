@@ -92,16 +92,18 @@ server <- function(input, output) {
   outdegrees <- degree(graph_weighted, mode = "out")
   betweenness_values <- betweenness(graph_weighted, directed = TRUE)
   closeness_values <- closeness(graph_weighted, mode = "out")
+  alpha_centrality_values <- alpha_centrality(graph_weighted, directed = TRUE)
 
   top_outdegree <- order(outdegrees, decreasing = TRUE)[1:n_initial]
   top_betweenness <- order(betweenness_values, decreasing = TRUE)[1:n_initial]
   top_closeness <- order(closeness_values, decreasing = TRUE)[1:n_initial]
   top_random <- sample(1:vcount(graph_weighted), n_initial)
+  top_alpha_centrality <- order(alpha_centrality_values)[1:n_initial]
 
 
   # Funkcja do obliczania średnich wyników dla danej strategii na podstawie n wykonań
   avg_results_for_strategy <- function(initial_nodes) {
-    n_experiments <- 100
+    n_experiments <- input$iterations
     all_histories <- list()
     for (exp in 1:n_experiments) {
       history <- independent_cascades(graph_weighted, initial_nodes)
@@ -129,6 +131,7 @@ server <- function(input, output) {
     betweenness_results <- avg_results_for_strategy(top_betweenness)
     closeness_results <- avg_results_for_strategy(top_closeness)
     random_results <- avg_results_for_strategy(top_random)
+    alpha_centrality_results <- avg_results_for_strategy(top_alpha_centrality)
 
 
     max_len <- max(
@@ -150,10 +153,11 @@ server <- function(input, output) {
     lines(0:(length(betweenness_results) - 1), betweenness_results, col = "red", lwd = 2)
     lines(0:(length(closeness_results) - 1), closeness_results, col = "green", lwd = 2)
     lines(0:(length(random_results) - 1), random_results, col = "orange", lwd = 2)
+    lines(0:(length(alpha_centrality_results) - 1), alpha_centrality_results, col = "purple", lwd = 2)
 
     legend("bottomright",
-      legend = c("I. Outdegree", "II. Betweenness", "III. Closeness", "IV. Losowe"),
-      col = c("blue", "red", "green", "orange"),
+      legend = c("I. Outdegree", "II. Betweenness", "III. Closeness", "IV. Random", "V. Alpha Centrality"),
+      col = c("blue", "red", "green", "orange", "purple"),
       lwd = 2, bty = "n"
     )
   })

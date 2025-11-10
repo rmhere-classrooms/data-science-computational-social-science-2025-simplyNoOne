@@ -1,18 +1,18 @@
 library(shiny)
 
 fluidPage(
-  titlePanel("Rozprzestrzenianie informacji poprzez Email - Independent Cascades Model"),
+  titlePanel("Information Spread via Email - Simulation"),
   sidebarPanel(
     sliderInput(
       inputId = "probability_multiplier",
-      label = "Mnożnik prawdopodobieństwa aktywacji krawędzi:",
+      label = "Edge activation probability multiplier:",
       min = 20,
       max = 200,
       value = 100
     ),
     sliderInput(
       inputId = "iterations",
-      label = "Liczba wykonań jednej symulacji symulacji:",
+      label = "Experiments run for single strategy:",
       min = 1,
       max = 50,
       value = 10
