@@ -1,23 +1,17 @@
-# ten plik to tylko wersja początkowa, faktyczna implementacja opublikowana w shiny znajduje się w folderze emailSpreadSim, ponieważ pojawiły się problemy z deployem aplikacji w tej formie
-
 library(igraph)
 library(shiny)
 library(bslib)
 library("lubridate") 
 
-# Aplikacja uruchomiana za pomocą shiny
-server <- function(input, output) {
-# Przygotowanie grafu ważonego z danych
-data <- read.table("~/Studia/VII/Danologia/data-science-computational-social-science-2025-simplyNoOne/css/out.radoslaw_email_email", skip = 2, header = FALSE)
+function(input, output) {
+prep_weighted_graph <- function(){
+data <- read.table("data/out.data", skip = 2, header = FALSE)
 
 data <- data[, 1:2]
 colnames(data) <- c("from", "to")
 
 graph <- graph_from_data_frame(data, directed = TRUE)
 graph <- simplify(graph, remove.multiple = TRUE, remove.loops = TRUE)
-
-cat("\nLiczba węzłów po simplify:", vcount(graph), "\n")
-cat("\nLiczba krawędzi po simplify:", ecount(graph), "\n")
 
 edges_count <- as.data.frame(table(data$from, data$to))
 colnames(edges_count) <- c("from", "to", "cntij")
@@ -35,11 +29,8 @@ edges_count$to <- as.character(edges_count$to)
 graph_weighted <- graph_from_data_frame(edges_count[, c("from", "to", "weight")],directed = TRUE)
 graph_weighted <- simplify(graph_weighted, remove.multiple = TRUE, remove.loops = TRUE)
 
-cat("Liczba węzłów w grafie ważonym:", vcount(graph_weighted), "\n")
-cat("Liczba krawędzi  w grafie ważonym:", ecount(graph_weighted), "\n")
-
-
-# Symulacja rozprzestrzeniania informacji - Independent Cascades Model
+graph_weighted
+}
 
 # Funkcja symulująca proces independent cascades
 independent_cascades <- function(graph, initial_nodes) {
@@ -86,25 +77,14 @@ independent_cascades <- function(graph, initial_nodes) {
 }
 
 
-# Wybór strategii początkowych węzłów do aktywacji
-n_initial <- ceiling(0.05 * vcount(graph_weighted))
-
-outdegrees <- degree(graph_weighted, mode = "out")
-betweenness_values <- betweenness(graph_weighted, directed = TRUE)
-closeness_values <- closeness(graph_weighted, mode = "out")
-
-top_outdegree <- order(outdegrees, decreasing = TRUE)[1:n_initial]
-top_betweenness <- order(betweenness_values, decreasing = TRUE)[1:n_initial]
-top_closeness <- order(closeness_values, decreasing = TRUE)[1:n_initial]
-top_random <- sample(1:vcount(graph_weighted), n_initial)
 
 
 # Funkcja do obliczania średnich wyników dla danej strategii na podstawie n wykonań
-avg_results_for_strategy <- function(initial_nodes) {
+avg_results_for_strategy <- function(initial_nodes, graph) {
 n_experiments <- 100
   all_histories <- list()
   for (exp in 1:n_experiments) {
-    history <- independent_cascades(graph_weighted, initial_nodes)
+    history <- independent_cascades(graph, initial_nodes)
     all_histories[[exp]] <- history
   }
 
@@ -125,17 +105,42 @@ avg_history
 }
 
  output$ICPlot <- renderPlot({
+   withProgress(message = "Preparing the graph", value = 0, {
+
+graph_weighted <- prep_weighted_graph()
+  incProgress(0.1, detail = "Calculating initial nodes")
+
+# Wybór strategii początkowych węzłów do aktywacji
+n_initial <- ceiling(0.05 * vcount(graph_weighted))
+
+outdegrees <- degree(graph_weighted, mode = "out")
+betweenness_values <- betweenness(graph_weighted, directed = TRUE)
+closeness_values <- closeness(graph_weighted, mode = "out")
+
+top_outdegree <- order(outdegrees, decreasing = TRUE)[1:n_initial]
+top_betweenness <- order(betweenness_values, decreasing = TRUE)[1:n_initial]
+top_closeness <- order(closeness_values, decreasing = TRUE)[1:n_initial]
+top_random <- sample(1:vcount(graph_weighted), n_initial)
+
+  incProgress(0.1, detail = "Running simulations: Outdegree strategy")
+
 
 # Przeprowadzenie symulacji dla każdej strategii i rysowanie wyników
-outdegree_results <- avg_results_for_strategy(top_outdegree)
-betweenness_results <- avg_results_for_strategy(top_betweenness)
-closeness_results <- avg_results_for_strategy(top_closeness)
-random_results <- avg_results_for_strategy(top_random)
+outdegree_results <- avg_results_for_strategy(top_outdegree, graph_weighted)
 
+  incProgress(0.2, detail = "Running simulations: Betweenness strategy")
+
+betweenness_results <- avg_results_for_strategy(top_betweenness, graph_weighted)
+  incProgress(0.2, detail = "Running simulations: Closeness strategy")
+closeness_results <- avg_results_for_strategy(top_closeness, graph_weighted)
+  incProgress(0.2, detail = "Running simulations: Random strategy")
+random_results <- avg_results_for_strategy(top_random, graph_weighted)
+
+incProgress(0.2, detail = "Drawing results")
 
 max_len <- max(length(outdegree_results), length(betweenness_results),
                length(closeness_results), length(random_results))
-# Maksymalna wartość na osi Y, aby dobrze widzieć wykres podzielona przez 3, bo i tak w żadnej strategii nie aktywujemy wszystkich węzłów
+
 max_val <- vcount(graph_weighted)
 
 plot(NULL, xlim = c(0, max_len), ylim = c(0, max_val),
@@ -153,36 +158,6 @@ legend("bottomright",
        legend = c("I. Outdegree", "II. Betweenness", "III. Closeness", "IV. Losowe"),
        col = c("blue", "red", "green", "orange"),
        lwd = 2, bty = "n")
-
  })
-
+ })
 }
-
-# Konfiguracja Shiny do wizualizacji wyników
-
-
-ui <- page_sidebar(
-
-  title = "Rozprzestrzenianie informacji poprzez Email - Independent Cascades Model",
-
-  sidebar = sidebar(
-
-    sliderInput(
-      inputId = "probability_multiplier",
-      label = "Mnożnik prawdopodobieństwa aktywacji krawędzi:",
-      min = 20,
-      max = 200,
-      value = 100
-    ),
-    sliderInput(
-      inputId = "iterations",
-      label = "Liczba wykonań jednej symulacji symulacji:",
-      min = 1,
-      max = 50,
-      value = 10
-    )
-  ),
-  plotOutput(outputId = "ICPlot")
-)
-
-shinyApp(ui = ui, server = server)
